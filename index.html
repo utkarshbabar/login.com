@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>XYZ BANK</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f4f4;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      background: #fff;
+    }
+
+    h1, h2 {
+      color: #0a3d62;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    button {
+      background: #0a3d62;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1e5a94;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #0a3d62;
+      color: #fff;
+    }
+
+    /* Chatbot styles */
+    .chatbot-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #0a3d62;
+      color: white;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      font-size: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+      z-index: 999;
+    }
+
+    .chatbot-panel {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 300px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 998;
+    }
+
+    .chatbot-header {
+      background: #0a3d62;
+      color: white;
+      padding: 10px;
+      font-weight: bold;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+
+    #chatbox {
+      padding: 10px;
+      height: 250px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      font-size: 14px;
+    }
+
+    .chatbot-input {
+      display: flex;
+      padding: 10px;
+      gap: 5px;
+    }
+
+    .chatbot-input input {
+      flex: 1;
+      padding: 8px;
+      font-size: 14px;
+    }
+
+    .chatbot-input button {
+      padding: 8px 12px;
+    }
+
+    .user-msg {
+      color: #000;
+    }
+
+    .bot-msg {
+      color: #1e5a94;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Welcome to MyBank</h1>
+  <h2>Account Information</h2>
+  <p><strong>Account Number:</strong> <span id="accountNumber"></span></p>
+  <p><strong>Balance:</strong> ₹<span id="balance">0.00</span></p>
+
+  <h2>Add Money</h2>
+  <input type="number" id="addAmount" placeholder="Amount to add">
+  <button onclick="addMoney()">Add Money</button>
+
+  <h2>Transfer Money</h2>
+  <input type="text" id="recipient" placeholder="Recipient Account Number">
+  <input type="number" id="transferAmount" placeholder="Amount to transfer">
+  <button onclick="transferMoney()">Transfer</button>
+
+  <p id="status"></p>
+
+  <h2>Transaction History</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Details</th>
+        <th>Amount</th>
+        <th>Type</th>
+      </tr>
+    </thead>
+    <tbody id="transactionBody"></tbody>
+  </table>
+</div>
+
+<!-- Chatbot Button -->
+<div class="chatbot-button" onclick="toggleChatbot()">💬</div>
+
+<!-- Chatbot Panel -->
+<div class="chatbot-panel" id="chatPanel">
+  <div class="chatbot-header">MyBank Chatbot</div>
+  <div id="chatbox"></div>
+  <div class="chatbot-input">
+    <input type="text" id="userInput" placeholder="Ask something..." />
+    <button onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<script>
+  // Data setup
+  let accountNumber = localStorage.getItem('accountNumber') || '10' + Math.floor(1000000000 + Math.random() * 9000000000);
+  let balance = parseFloat(localStorage.getItem('balance')) || 50000;
+  let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+  function saveData() {
+    localStorage.setItem('accountNumber', accountNumber);
+    localStorage.setItem('balance', balance);
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }
+
+  function updateDisplay() {
+    document.getElementById("accountNumber").textContent = accountNumber;
+    document.getElementById("balance").textContent = balance.toFixed(2);
+    const tbody = document.getElementById("transactionBody");
+    tbody.innerHTML = "";
+    transactions.forEach(tx => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${tx.date}</td>
+        <td>${tx.details}</td>
+        <td>${tx.type === "Credit" ? "+" : "-"}₹${tx.amount.toFixed(2)}</td>
+        <td>${tx.type}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  function showStatus(msg, color) {
+    const status = document.getElementById("status");
+    status.textContent = msg;
+    status.style.color = color;
+  }
+
+  function addMoney() {
+    const amount = parseFloat(document.getElementById("addAmount").value);
+    if (isNaN(amount) || amount <= 0) {
+      showStatus("Enter a valid amount.", "red");
+      return;
+    }
+    balance += amount;
+    transactions.unshift({
+      date: new Date().toLocaleString(),
+      details: "Money added",
+      amount: amount,
+      type: "Credit"
+    });
+    saveData();
+    updateDisplay();
+    showStatus(`₹${amount} added successfully.`, "green");
+  }
+
+  function transferMoney() {
+    const recipient = document.getElementById("recipient").value;
+    const amount = parseFloat(document.getElementById("transferAmount").value);
+    if (!recipient || isNaN(amount) || amount <= 0) {
+      showStatus("Enter valid recipient and amount.", "red");
+      return;
+    }
+    if (amount > balance) {
+      showStatus("Insufficient balance.", "red");
+      return;
+    }
+    balance -= amount;
+    transactions.unshift({
+      date: new Date().toLocaleString(),
+      details: `Transferred to ${recipient}`,
+      amount: amount,
+      type: "Debit"
+    });
+    saveData();
+    updateDisplay();
+    showStatus(`₹${amount} transferred to ${recipient}`, "green");
+  }
+
+  function toggleChatbot() {
+    const panel = document.getElementById("chatPanel");
+    panel.style.display = panel.style.display === "flex" ? "none" : "flex";
+    panel.style.flexDirection = "column";
+  }
+
+  function sendMessage() {
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
+    if (!message) return;
+    appendMessage("You", message, "user-msg");
+    respondToUser(message.toLowerCase());
+    input.value = "";
+  }
+
+  function appendMessage(sender, message, className) {
+    const chatbox = document.getElementById("chatbox");
+    const msg = document.createElement("p");
+    msg.className = className;
+    msg.innerHTML = `<strong>${sender}:</strong> ${message}`;
+    chatbox.appendChild(msg);
+    chatbox.scrollTop = chatbox.scrollHeight;
+  }
+
+  function respondToUser(msg) {
+    let reply = "Sorry, I didn’t understand that.";
+    if (msg.includes("hello") || msg.includes("hi")) {
+      reply = "Hello! How can I assist you today?";
+    } else if (msg.includes("balance")) {
+      reply = `Your current balance is ₹${balance.toFixed(2)}.`;
+    } else if (msg.includes("add")) {
+      reply = "Please use the 'Add Money' section to deposit money.";
+    } else if (msg.includes("transfer") || msg.includes("send")) {
+      reply = "Go to 'Transfer Money' to send funds.";
+    }
+    appendMessage("Bot", reply, "bot-msg");
+  }
+
+  document.getElementById("userInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  });
+
+  updateDisplay();
+</script>
+
+</body>
+</html>
